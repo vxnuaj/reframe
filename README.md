@@ -11,15 +11,23 @@ inspectable, and cacheable. you can render it with whatever you already have, fe
 it into another tool, or hand-edit a keyframe before rendering. the analysis runs
 once; rendering is a separate, cheap step you can repeat at any size or quality.
 
-## install (uv)
+## install
+
+inside this repo (to develop or run it locally):
 
 ```bash
 uv sync               # core only, pure python
 uv sync --extra ml    # + detectors (yolo, mediapipe, opencv, scenedetect)
 ```
 
-from another project: `uv add reframe` or `uv add "reframe[ml]"`, or
-`pip install "reframe[ml]"`.
+from another project: it's not on pypi (the name is taken), so install from git,
+pinned to a tag or commit for reproducible builds:
+
+```bash
+uv add "reframe[ml] @ git+https://github.com/vxnuaj/reframe.git@v0.1.0"
+# core only: drop the [ml]. pip works the same way:
+pip install "reframe[ml] @ git+https://github.com/vxnuaj/reframe.git@v0.1.0"
+```
 
 ## core vs ml
 
@@ -105,6 +113,20 @@ weights download automatically on first use, with a progress bar. they run on cu
 when available, otherwise cpu/mps. each backend points at its model installed in
 its own venv (see `reframe/asd/backends.py`); for a deployed setup you can back the
 same interface with an http service instead.
+
+controlling weights:
+
+```python
+from reframe import get_backend
+get_backend("lr-asd", weights_dir="/models")   # look in + download to /models
+get_backend("lr-asd", offline=True)            # never download; error if missing
+```
+
+`offline=True` skips downloading entirely and expects the weights to already be
+present (baked into an image, mounted, etc.), erroring with the expected path if one
+is missing. `weights_dir` sets where weights live and download to; with `offline`
+they must already be there. it relocates the downloaded weights (S3FD, and the
+TalkNet checkpoint); a missing weight downloads only when `offline` is false.
 
 ## tuning
 

@@ -1,11 +1,42 @@
-"""Scores contract + merge — pure Python, no model needed."""
+"""Scores contract + merge + weight resolution — pure Python, no model needed."""
 
-from reframe.asd import SpeakingScores, apply_speaking_scores
+import pytest
+
+from reframe.asd import SpeakingScores, SubprocessASDBackend, apply_speaking_scores
 from reframe.asd.contract import FaceScore, FrameScores
 from reframe.detect import ReplayDetector
 from reframe.types import Detection, FrameDetections, VideoMeta
 
 W, H, FPS = 1920, 1080, 30.0
+
+
+def _backend(repo, **kw):
+    return SubprocessASDBackend(
+        name="x", python_exe="/p/bin/python", runner="r.py", repo_path=repo,
+        weights=[{"path": "sub/w.pth", "gdrive": "id", "label": "W", "arg": "--s3fd-weight"}], **kw,
+    )
+
+
+def test_offline_errors_when_weight_missing(tmp_path):
+    with pytest.raises(RuntimeError):
+        _backend(str(tmp_path), offline=True).ensure_weights()
+
+
+def test_present_weight_is_not_downloaded(tmp_path):
+    (tmp_path / "sub").mkdir()
+    (tmp_path / "sub" / "w.pth").write_text("x")
+    _backend(str(tmp_path), offline=True).ensure_weights()  # exists -> no error, no download
+
+
+def test_weights_dir_relocates_dest_and_runner_arg(tmp_path):
+    b = _backend("/repo", weights_dir=str(tmp_path))
+    assert b._dest(b.weights[0]) == str(tmp_path / "w.pth")
+    assert b._weight_args() == ["--s3fd-weight", str(tmp_path / "w.pth")]
+
+
+def test_default_dest_is_repo_relative():
+    b = _backend("/repo")
+    assert b._dest(b.weights[0]) == "/repo/sub/w.pth"
 
 
 def _person(cx, tid):

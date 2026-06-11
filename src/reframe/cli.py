@@ -7,6 +7,16 @@ import sys
 from .presets import DEFAULT_PRESET, PRESETS
 
 
+def _coerce(v: str):
+    """Best-effort scalar type for a CLI --set value: int, then float, else str."""
+    for cast in (int, float):
+        try:
+            return cast(v)
+        except ValueError:
+            pass
+    return v
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="reframe", description="Reframe a video to a subject-tracking crop path (and optionally render it).")
     p.add_argument("video")
@@ -14,6 +24,11 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--preset", choices=list(PRESETS), default=DEFAULT_PRESET)
     p.add_argument("--aspect", default="9:16", help="target aspect W:H (default 9:16)")
     p.add_argument("--no-face", action="store_true", help="skip MediaPipe face refinement")
+    p.add_argument(
+        "--set", action="append", default=[], metavar="KEY=VALUE", dest="overrides",
+        help="override a preset field without editing code, e.g. "
+        "--set max_step_x=4 --set deadzone=0.06 --set switch_boost=0 (repeatable)",
+    )
     p.add_argument(
         "--asd", default=None, metavar="MODEL",
         help="active-speaker model for the speaker cue (e.g. lr-asd, talknet); "
@@ -28,6 +43,10 @@ def main(argv: list[str] | None = None) -> int:
     args = p.parse_args(argv)
 
     aspect = tuple(int(x) for x in args.aspect.split(":"))
+    overrides = {}
+    for kv in args.overrides:
+        key, _, val = kv.partition("=")
+        overrides[key.strip()] = _coerce(val.strip())
 
     # lazy so `reframe --help` works without the ml extra installed
     from .pipeline import analyze_video
@@ -40,7 +59,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"active-speaker model: {args.asd} ({backend.python_exe})")
 
     path = analyze_video(
-        args.video, preset=args.preset, aspect=aspect, use_face=not args.no_face, asd_backend=backend
+        args.video, preset=args.preset, aspect=aspect, use_face=not args.no_face,
+        asd_backend=backend, overrides=overrides or None,
     )
 
     out = args.out or f"{args.video}.crop.json"

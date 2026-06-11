@@ -2,12 +2,16 @@
   - framing limits: which classes count as subjects, zoom range, max pan speed.
   - camera feel: the damped-spring response/damping/target-easing (see smooth.py).
 
-Values are tuned starting points — a talking head wants tight, gentle framing;
-sports/cars want looser, faster tracking.
+Only `talking_head` ships today, and it's the one that's actually been tuned and
+tested. To add another content type (e.g. sports, pets), define a new Preset and
+register it in PRESETS below; it then works everywhere by name (CLI `--preset`,
+`analyze_video(preset=...)`). Different content wants different feel: looser, faster
+tracking and a wider zoom range for fast motion; tight, gentle framing for a head.
 """
 
 from __future__ import annotations
 
+import dataclasses
 from dataclasses import dataclass
 
 
@@ -53,48 +57,24 @@ PRESETS: dict[str, Preset] = {
         deadzone=0.06,
         switch_boost=0,  # instant cut to the new speaker (true 1-frame cut)
     ),
-    "sports": Preset(
-        name="sports",
-        classes=("person", "car", "bicycle", "motorcycle", "sports ball"),
-        min_zoom=1.0,
-        max_zoom=1.35,
-        max_step_x=12.0,
-        max_step_y=8.0,
-        motion_response=0.18,
-        motion_damping=0.78,
-        target_alpha=0.2,
-        zoom_response=0.1,
-        zoom_damping=0.82,
-        zoom_alpha=0.05,
-    ),
-    "pets": Preset(
-        name="pets",
-        classes=("dog", "cat", "person"),
-        min_zoom=1.0,
-        max_zoom=1.55,
-        max_step_x=10.0,
-        max_step_y=7.0,
-        motion_response=0.15,
-        motion_damping=0.8,
-        target_alpha=0.16,
-        zoom_response=0.09,
-        zoom_damping=0.83,
-        zoom_alpha=0.045,
-    ),
-    "cars": Preset(
-        name="cars",
-        classes=("car", "truck", "bus", "motorcycle", "person"),
-        min_zoom=1.0,
-        max_zoom=1.3,
-        max_step_x=11.0,
-        max_step_y=7.0,
-        motion_response=0.17,
-        motion_damping=0.79,
-        target_alpha=0.18,
-        zoom_response=0.1,
-        zoom_damping=0.82,
-        zoom_alpha=0.05,
-    ),
+    # NOTE: add more presets here as new content types are tuned (e.g. "sports",
+    # "pets", "cars"). A starting point usually wants a looser zoom range, higher
+    # max_step_x/y for fast motion, and a smaller deadzone. Validate on real footage
+    # before trusting it — the values are a feel, not a default that just works.
 }
 
 DEFAULT_PRESET = "talking_head"
+
+
+def resolve_preset(preset: str | Preset = DEFAULT_PRESET, overrides: dict | None = None) -> Preset:
+    """Resolve a preset by name (or take a Preset as-is), then optionally override
+    individual fields without editing presets.py:
+
+        resolve_preset("talking_head", {"max_step_x": 4.0, "deadzone": 0.06})
+
+    Unknown field names raise TypeError, so a typo is caught rather than ignored.
+    """
+    base = preset if isinstance(preset, Preset) else PRESETS[preset]
+    if overrides:
+        base = dataclasses.replace(base, **overrides)
+    return base

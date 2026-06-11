@@ -117,8 +117,13 @@ def run(load_model, score_track, default_weight):
     ap.add_argument("--out", required=True)
     ap.add_argument("--model", default="asd")
     ap.add_argument("--weight", default=default_weight)
+    ap.add_argument("--s3fd-weight", default=None, help="load the S3FD face weights from here")
     args = ap.parse_args()
 
+    if args.s3fd_weight:
+        import model.faceDetector.s3fd as _s3fd
+
+        _s3fd.PATH_WEIGHT = args.s3fd_weight
     from model.faceDetector.s3fd import S3FD
 
     dev = pick_device()

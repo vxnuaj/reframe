@@ -34,7 +34,8 @@ def build_crop_path(
     fill_h: float = 0.7,
     selector: SubjectSelector | None = None,
 ) -> CropPath:
-    preset = PRESETS[preset_name]
+    # preset_name may be a name or an already-resolved (possibly overridden) Preset
+    preset = preset_name if isinstance(preset_name, Preset) else PRESETS[preset_name]
     selector = selector or SubjectSelector()
     starts = set(scene_starts or [0])
     starts.add(0)  # frame 0 is always a fresh shot
@@ -109,6 +110,6 @@ def build_crop_path(
         width=meta.width,
         height=meta.height,
         target_aspect=target_aspect,
-        preset=preset_name,
+        preset=preset.name,
         keyframes=keyframes,
     )

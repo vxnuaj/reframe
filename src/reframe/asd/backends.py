@@ -17,11 +17,13 @@ _RUNNERS = os.path.join(_ASD_DIR, "runners")
 # comet/reframe/src/reframe/asd -> up 4 -> comet/
 _COMET = os.path.abspath(os.path.join(_ASD_DIR, "..", "..", "..", ".."))
 
-# Google-Drive ids for the model weights (auto-fetched on first use).
+# Google-Drive ids for the model weights (auto-fetched on first use). `arg` is the
+# runner flag that tells the model where to load it from, so a custom weights_dir
+# actually takes effect (not just where it downloads).
 _S3FD = {"path": "model/faceDetector/s3fd/sfd_face.pth", "gdrive": "1KafnHz7ccT-3IyddBsL5yi2xGtxAKypt",
-         "label": "S3FD face detector (~90MB)"}
+         "label": "S3FD face detector (~90MB)", "arg": "--s3fd-weight"}
 _TALKSET = {"path": "pretrain_TalkSet.model", "gdrive": "1AbN9fCf9IexMxEKXLQY2KYBlb-IhSEea",
-            "label": "TalkNet weights (~63MB)"}
+            "label": "TalkNet weights (~63MB)", "arg": "--weight"}
 
 
 def _subprocess(name, repo, runner, repo_path, python_exe, weights, **kw):
