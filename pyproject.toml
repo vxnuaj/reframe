@@ -1,0 +1,44 @@
+[project]
+name = "reframe"
+version = "0.1.0"
+description = "Scene-aware intelligent video reframing — emits a smooth, subject-tracking crop path (decoupled from rendering)."
+readme = "README.md"
+requires-python = ">=3.11"
+# Core is pure-Python (the camera/ranker/path logic) so it installs with zero
+# native deps. The vision detectors are an opt-in extra.
+dependencies = []
+
+[project.optional-dependencies]
+# Bundled local detectors (YOLO + MediaPipe + scene detection). Install with
+#   pip install "reframe[ml]"
+# mediapipe is pinned to 0.10.14: it still ships the legacy `solutions` API with
+# the FULL-RANGE BlazeFace model (model_selection=1), which actually detects
+# mid-distance faces (e.g. podcast subjects). Newer mediapipe dropped that API +
+# only publishes short-range. 0.10.14 needs python <=3.12 and numpy <2.
+ml = [
+  "ultralytics>=8.3.0",
+  "lap>=0.5.12",          # linear assignment, required by ultralytics' ByteTrack
+  "mediapipe==0.10.14",
+  "opencv-python>=4.10.0.84",
+  "scenedetect>=0.6.4",
+  "numpy>=1.26,<2",
+]
+
+[project.scripts]
+reframe = "reframe.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/reframe"]
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]

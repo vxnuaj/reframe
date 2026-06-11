@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+dist/
+build/
+out/
+.pytest_cache/
+*.mp4
+*.pt
+.DS_Store
+assets/
