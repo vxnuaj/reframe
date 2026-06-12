@@ -78,13 +78,21 @@ def _track_shot(faces, min_track=10, num_failed=10, min_face=1, iou_thres=0.5):
     return tracks
 
 
+def _log(msg):
+    print(f"[reframe-asd] {msg}", flush=True)
+
+
 def _detect_faces(det, frames_dir, scale=0.25):
     flist = sorted(glob.glob(os.path.join(frames_dir, "*.jpg")))
     dets = []
+    n = len(flist)
+    _log(f"face detection (S3FD): {n} frames")
     for fidx, fname in enumerate(flist):
         img = cv2.cvtColor(cv2.imread(fname), cv2.COLOR_BGR2RGB)
         bboxes = det.detect_faces(img, conf_th=0.9, scales=[scale])
         dets.append([{"frame": fidx, "bbox": b[:-1].tolist(), "conf": b[-1]} for b in bboxes])
+        if n and (fidx + 1) % 100 == 0:
+            _log(f"face detection: {fidx + 1}/{n} frames")
     return dets, flist
 
 
@@ -126,8 +134,12 @@ def run(load_model, score_track, default_weight):
         _s3fd.PATH_WEIGHT = args.s3fd_weight
     from model.faceDetector.s3fd import S3FD
 
+    import time
+
+    t0 = time.time()
     dev = pick_device()
     native_fps = cv2.VideoCapture(args.video).get(cv2.CAP_PROP_FPS) or 25.0
+    _log(f"start | model={args.model} | device={dev} | loading weights")
     ctx = load_model(args.weight, dev)
     det = S3FD(device=dev)
 
@@ -135,6 +147,7 @@ def run(load_model, score_track, default_weight):
         frames_dir = os.path.join(tmp, "frames")
         os.makedirs(frames_dir)
         audio_path = os.path.join(tmp, "audio.wav")
+        _log(f"extracting frames @ {PROC_FPS}fps + audio (ffmpeg)")
         subprocess.run(["ffmpeg", "-y", "-i", args.video, "-qscale:v", "2", "-r", str(PROC_FPS),
                         "-f", "image2", os.path.join(frames_dir, "%06d.jpg"), "-loglevel", "error"], check=True)
         subprocess.run(["ffmpeg", "-y", "-i", args.video, "-ac", "1", "-vn", "-ar", "16000",
@@ -143,9 +156,11 @@ def run(load_model, score_track, default_weight):
 
         dets, flist = _detect_faces(det, frames_dir)
         tracks = _track_shot(dets)
+        _log(f"tracking: {len(tracks)} face track(s) across {len(flist)} frames | scoring (TalkNet)")
 
         frames: dict[int, list] = {}
         for tidx, track in enumerate(tracks):
+            _log(f"scoring track {tidx + 1}/{len(tracks)} ({len(track['frame'])} frames)")
             vfeat, afeat = _track_features(track, flist, audio)
             scores = score_track(ctx, vfeat, afeat, dev)
             for fidx, frame25 in enumerate(track["frame"].tolist()):
@@ -163,4 +178,4 @@ def run(load_model, score_track, default_weight):
            "model": args.model, "frames": [{"frame": k, "faces": v} for k, v in sorted(frames.items())]}
     with open(args.out, "w") as fh:
         json.dump(out, fh)
-    print(f"[{args.model}] {len(tracks)} tracks, {len(frames)} frames, device={dev}")
+    _log(f"done | {len(tracks)} tracks, {len(frames)} scored frames | {time.time() - t0:.1f}s | device={dev}")

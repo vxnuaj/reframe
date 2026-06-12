@@ -102,17 +102,17 @@ class SubprocessASDBackend:
                 *self.extra_args,
             ]
             env = {**os.environ, "PYTHONPATH": self.repo_path + os.pathsep + os.environ.get("PYTHONPATH", "")}
-            proc = subprocess.run(
-                cmd, cwd=self.repo_path, env=env, timeout=self.timeout,
-                capture_output=True, text=True,
-            )
+            # Stream the model's stdout/stderr to ours (don't capture) so its per-step
+            # progress shows up live in the logs — the run is minutes long on CPU, so
+            # silence is the enemy. The result comes from the --out file, not stdout.
+            proc = subprocess.run(cmd, cwd=self.repo_path, env=env, timeout=self.timeout)
             if proc.returncode != 0:
                 raise RuntimeError(
-                    f"ASD backend '{self.name}' failed (exit {proc.returncode}).\n"
-                    f"cmd: {' '.join(cmd)}\nstderr tail:\n{proc.stderr[-2000:]}"
+                    f"ASD backend '{self.name}' failed (exit {proc.returncode}); see the model logs above. "
+                    f"cmd: {' '.join(cmd)}"
                 )
             if not os.path.exists(out):
                 raise RuntimeError(
-                    f"ASD backend '{self.name}' produced no scores file.\nstderr tail:\n{proc.stderr[-2000:]}"
+                    f"ASD backend '{self.name}' produced no scores file; see the model logs above."
                 )
             return SpeakingScores.load(out)
